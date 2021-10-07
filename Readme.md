@@ -45,10 +45,10 @@ Frankly, the way I used youtube-dl is nearly the same as nicomda but in one comb
 ## Quick Start
 ```bash
 #To encrypt text: 
-./AESTube.py -e -t 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
+./AESTubeWav.py -e -t 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
 
 #To decrypt files: 
-./AESTube.py -e -d 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
+./AESTubeWav.py -e -d 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
 ```
 
 ### **Available arguments:**

@@ -1,5 +1,7 @@
 #!bin/python3
 #Notice that is venv enabled
+from __future__ import unicode_literals
+import youtube_dl
 import numpy as np
 import pyaudio
 import wave
@@ -11,27 +13,26 @@ import hashlib
 import subprocess
 import base64
 from requests import exceptions
-from pytube import YouTube
-from AESCipher import AESCipher 
+from AESCipher import AESCipher
+
 
 fs= 44100               #Sample Hz
 scales = 8              #Amount of musical scales to work with (12 semitones)
 duration = 0            #Audio duration in ms to control splitting
 detected_notes = []     #Array to store detected notes
 detected_freqs = []     #Array to store detected frequencies
-downloads_path = '/tmp/media_tmp'
-ytLink = opData = opMode = opType = key = output_path = ''
-isInteractive = isSplitted = isInvalid = isVerbose = False
-startTime = endTime = 0
+ytLink = file_name = localfile = opData = opMode = opType = opSource = key = ''
+isSplitted = isInvalid = isVerbose = False
+startTime = endTime = ''
 
 def getArgsOptions():
-    global opMode, opType, opData, isInteractive, isSplitted, isVerbose, startTime, endTime, output_path, ytLink
+    global opMode, opType, opData, opSource, isSplitted, isVerbose, startTime, endTime, ytLink, localfile
     if len(sys.argv) == 1:
         printQuickHelp()
         sys.exit()
     argv = sys.argv[1:]
     try:
-        opts, args = getopt.getopt(argv, 'haedf:t:svl:o:', ["help","start_time=", "end_time=", "yt_link=", "output_path="])
+        opts, args = getopt.getopt(argv, 'hedf:t:svw:l:', ["help","start_time=", "end_time=", "yt_link="])
     except getopt.GetoptError:
         print('Arguments error, just use as below or -h for more options.')
         printQuickHelp()
@@ -40,9 +41,6 @@ def getArgsOptions():
         if opt in ('-h', '--help'):
             printExtendedHelp()
             sys.exit()
-        elif opt == '-a':
-            
-            isInteractive= True
         elif opt == '-e':            
             opMode = 'E'  
         elif opt== '-d':
@@ -56,29 +54,17 @@ def getArgsOptions():
         elif opt == '-s':
             isSplitted = True
         elif opt == '-v':
-            isVerbose = True                
+            isVerbose = True
         elif opt in ('-l', '--yt_link'):
-            ytLink = arg        
+            opSource = 'L'
+            ytLink = arg
+        elif opt in ('-w'):
+            opSource = 'W'
+            localfile = arg
         elif opt in ('--start_time'):
-            startTime = int(arg)    
+            startTime = arg
         elif opt in ('--end_time'):
-            endTime = int(arg)
-        elif opt in ('-o','--output_path' ):
-            output_path = arg
-
-def getInteractiveOptions():
-    global isSplitted
-    #Interactive Mode Questions
-    print('Will be a quick setup. More advanced options are available through command line arguments.')
-    ytLink = input('(1/6)YouTube link that you will use as passphrase: ')
-    print('(2/6) Do you wanna use audio splitting to increase security?')
-    if(input('For decrypt mode, splitting must be selected if you selected it during encryption process(y/N): ') == 'y'):
-        isSplitted = True
-    if(isSplitted):
-        startTime= input('(3/6) Choose splitting start in seconds: ')
-        finishTime = input('(4/6) Choose splitting end in seconds: ')
-    opMode = input('(5/6) Do you want to encrypt or decrypt?(E/D): ')
-    opType = input('(6/6) Which kind?(T)ext or (F)ile: ')
+            endTime = arg
 
 def printExtendedHelp():
     print('Available arguments')
@@ -87,20 +73,32 @@ def printExtendedHelp():
     print('-t                               String data')
     print('-f <file_to_encrypt>             File to encrypt')
     print("-l, --yt_link= 'Youtube link'    Audio that will be used to get passphrase")
+    print("-w              'Local File'     Local audo that will be use to get passphrase")
     print('-s                               Splitted mode. It will get just a part of the audio. If you use it, you must set start_time and end_time args')
     print('--start_time=                    Start of the split in seconds')
     print('--end_time=                      Start of the split in seconds')
-    print('-o, --output_path=               Path where output will be created')
-    print('-a                               Interactive mode (Will ask for options)')
+    print('Split uses the ffmpeg flag -to')
+    print("Local files have to be wav. Use ffmpeg -y -i '<input file.extension>' -ab 96k -ac 1 -ar 44100 -vn '<output file name>.wav' to fix it")
     printQuickHelp()
 
 def printQuickHelp():
     print("***Quick Usage steps***")
-    print("----------------------------------------")
-    print("To encrypt text: AESTube.py -e -t 'text_to_encrypt' -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'")
-    print("To encrypt file: AESTube.py -e -f <file_to_encrypt> -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'")
-    print("To encrypt text: AESTube.py -d -t 'text_to_encrypt' -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'")
-    print("To encrypt file: AESTube.py -d -f <file_to_encrypt> -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'")
+    print("--------------------YouTube and Cli Strings--------------------")
+    print("To encrypt text: AESTube.py -e -t 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("To encrypt file: AESTube.py -e -f '<file_to_encrypt>' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("To encrypt text: AESTube.py -d -t 'text_to_decrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("To decrypt file: AESTube.py -d -f '<file_to_decrypt>' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("--------------------Local Files--------------------")
+    print("To encrypt file: AESTube.py -e -f '<file_to_encrypt>' -s -w '<file name.extension>' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("To decrypt file: AESTube.py -d -f '<file_to_decrypt>' -s -w '<file name.extension>' --start_time='HH:MM:SS' --end_time='HH:MM:SS'")
+    print("--------------------Examples--------------------")
+    print("AESTube_adjv3_1.py -e -f 'image1.png' -v -l 'https://www.youtube.com/watch?v=nd6pq74vAlA'")
+    print("AESTube_adjv3_1.py -d -f 'image1.png.aenc' -v -l 'https://www.youtube.com/watch?v=nd6pq74vAlA'")
+    print("AESTube_adjv3_1.py -e -t 'Hello World' -s -w '1.wav' --start_time='00:00:30' --end_time='00:01:00'")
+    print("AESTube_adjv3_1.py -d -t 'tO702AktmkSVoiuHM59U8kMcG8hE16pvgIBDLmRqCac=' -s -w '1.wav' --start_time='00:00:30' --end_time='00:01:00'")
+    print("--------------------User Error--------------------")
+    print("In theory if you don't have a wav file, you can just enter the three letter ext and it will convert to wav. It looks like this:")
+    print("AESTube_adjv3_1.py -e -f 'image1.png' -v -w 'key.mp3'")
 
 #Function to find the closer element in an array
 def closest(lst, K): 
@@ -173,7 +171,7 @@ def noteDetect(audio_file):
 
 def soundProcessing(file_name):
     try:
-        sound_file = wave.open( f'{downloads_path}/{file_name}.wav', 'r')
+        sound_file = wave.open( f'{file_name}.wav', 'r')
         print('Conversion completed. Now starting to analize.')
         print('----------------------------------------------')
         filtered_notes= noteDetect(sound_file) #To audio processing with FFT
@@ -182,49 +180,18 @@ def soundProcessing(file_name):
     except IOError:
         print('[Error] reading file')
 
-def splitAudio(t1,t2,input_file):
-    start_time= int(t1)*1000 #Works in ms
-    finish_time= int(t2)*1000
-    newAudio = AudioSegment.from_wav(f'{downloads_path}/{input_file}.wav')
-    duration = len(newAudio)
-    if(start_time<duration and (duration-start_time)>finish_time and finish_time>start_time):
-        newAudio = newAudio[start_time:finish_time]
-        filename_no_ext = file_name[0:len(file_name)-4]     #Just deletes extension
-        filename_output = f'{filename_no_ext}_split.wav'
-        newAudio.export(f'{downloads_path}/{filename_output}', format='wav')
-        return True
-    print('[Error] splitting file. Trying to split bigger than original audio?')    
-    return False
-
-def convertToWav(file_name):
-    #FFMpeg conversion. Bitrate 96kbps, Audio Channels 1 (Mono), Bitrate 44.1kHz, Force Overwrite
-    command= f"ffmpeg -y -i '{downloads_path}/{file_name}.mp4' -ab 96k -ac 1 -ar 44100 -vn '{downloads_path}/{file_name}.wav'"
-    if(isVerbose):
-        print(command) 
-    print(f'Converting to wav: {file_name}')
-    try:
+def splitAudio(startTime, endTime, file_name):
+    command=f"ffmpeg -i '{file_name}.wav' -ss '{startTime}' -to '{endTime}' -c copy '{file_name}_split.wav'"
+     try:
         subprocess.check_call(['ffmpeg', '-version'])
     except subprocess.CalledProcessError:
-        print('FFMpeg not installed. It is used during conversion process. To install it, just execute ffmpeg-installer.sh')
-        print('Will last 5-15 min')
+        print('FFMpeg not installed. It is used during conversion process.')
         sys.exit()
     if(isVerbose):
-        subprocess.call(command, shell=True)  
+        subprocess.call(command, shell=True)
     else:
         FNULL = open(os.devnull, 'wb')
         subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
-        
-def getYoutubeMedia(ytlink, isAudio=True):
-    try:
-        print('Downloading stream (audio), wait a bit') #TODO Maybe video streams support
-        print(ytlink)
-        yt = YouTube(ytlink, on_complete_callback=downloadedTrigger)
-        stream = yt.streams.filter(only_audio=isAudio).first()
-        stream.download(downloads_path)
-        return stream.default_filename
-    except exceptions.RequestException:
-        print ("[Error] downloading file.")
-        sys.exit()
 
 def downloadedTrigger(stream, file_handle):
     print('Download Completed')
@@ -244,73 +211,94 @@ def writeBinToFile(data,filename):
         newFile.close()
     except IOError:
         print('[Error] Writing to file')
-def createDownloadFolder():
-    #Creating tmp directory
-    if(not os.path.isdir(downloads_path)):
-        try:
-            os.mkdir(downloads_path)
-        except OSError:
-            print (f'[Error]Creation of the directory {downloads_path} failed. Do you have enough permissions?')
-            sys.exit()
-        else:
-            print (f'Successfully created the directory: {downloads_path} ')
+
+def download_audio(url):
+    ydl_opts = {
+        'verbose': True,
+        'format': 'best',
+        'outtmpl': 'key.mp4',
+        'noplaylist': True
+
+        }
+    with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+        ydl.cache.remove()
+        vid_title = ydl.extract_info(url, None)
+        ydl.download([url])
+
+
+    command= f"ffmpeg -y -i 'key.mp4' -ab 96k -ac 1 -ar 44100 -vn 'key.wav'"
+    if(isVerbose):
+        print(command)
+    #print(f'Converting to wav: {vid_title}')
+    print('Converting to wav:  %s' % vid_title['title'])
+    try:
+        subprocess.check_call(['ffmpeg', '-version'])
+    except subprocess.CalledProcessError:
+        print('FFMpeg not installed. It is used during conversion process.')
+        sys.exit()
+    if(isVerbose):
+        subprocess.call(command, shell=True)
+    else:
+        FNULL = open(os.devnull, 'wb')
+        subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
+
+def fixExtension(file_name,ext):
+    command= f"ffmpeg -y -i '{file_name}{ext}' -ab 96k -ac 1 -ar 44100 -vn -c copy'{file_name}.wav'"
+    try:
+        subprocess.check_call(['ffmpeg', '-version'])
+    except subprocess.CalledProcessError:
+        print('FFMpeg not installed. It is used during conversion process.')
+        sys.exit()
+    if(isVerbose):
+        subprocess.call(command, shell=True)
+    else:
+        FNULL = open(os.devnull, 'wb')
+        subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
 
 if __name__ == "__main__":
     getArgsOptions()
-    #Interactive Mode Questions
-    if(isInteractive):
-        getInteractiveOptions()
-    #CreateDownloadFolder    
-    createDownloadFolder()
-    #Downloading audio
-    file_name=getYoutubeMedia(ytLink,isAudio=True)
+    if(opSource == 'L'):
+        download_audio(ytLink)
+        file_name = 'key.wav'
+    if(opSource == 'W'):
+        file_name = localfile
+
     if(isVerbose):
         print(file_name)
+    ext = file_name[-4:]
     filename_no_ext = file_name[0:len(file_name)-4] #Just deletes .mp4
     if(isVerbose):
-        print(filename_no_ext)     
-    #Converting to wav
-    convertToWav(filename_no_ext)
-    #Splitting if choosen 
+        print(filename_no_ext)
+
+    print(ext)
     if(isSplitted):
-        if(splitAudio(startTime,endTime,filename_no_ext)):
-            sys.exit() #Exit if there's problems while splitting
-        soundProcessing(f'{filename_no_ext}_split')     #Sound processing
+        splitAudio(startTime, endTime, filename_no_ext)
+        if(ext == '.wav'):
+            soundProcessing(filename_no_ext)
+        else:
+            fixExtension(filename_no_ext, ext)
+            soundProcessing(filename_no_ext)
     else:
-        soundProcessing(filename_no_ext)
+        if(ext == '.wav'):
+            soundProcessing(filename_no_ext)
+        else:
+            fixExtension(filename_no_ext, ext)
+            soundProcessing(filename_no_ext)
+
     #Creating key for encryption
     key=''
     for note in detected_notes:
         key += note
     aes=AESCipher(key)
     if(opMode=='E'): #Encryption
-        if(opType=='T'): #Text mode
-            if(isInteractive):
-                opData=input('(6/6) Text to encrypt?: ')
+        if(opType =='T'): #Text mode
             print(f'Encrypted text: {aes.encrypt(opData.encode(),encode=True)}')
         else:   #File mode
-            if(isInteractive):
-                opData = input('(6/6) File to encrypt?: ')
             encryptedData = aes.encrypt(readBinFile(opData), encode=False)
             writeBinToFile(encryptedData, f'{opData}.aenc')
     else:
         if(opType=='T'): #Text mode
-            if(isInteractive):
-                opData=input('(6/6) Text to decrypt?: ')
             print(f'Decrypted text: {aes.decrypt(opData,decode=True).decode()}')
         else:   #File mode
-            if(isInteractive):
-                opData = input('(6/6) File to decrypt?: ')
             decryptedData = aes.decrypt(readBinFile(opData), decode=False)
             writeBinToFile(decryptedData, opData[0:len(opData)-5]) #Binary write deleting aenc extension
-
-    files = glob.glob(f'{downloads_path}/*')
-    for f in files:
-        os.remove(f)    #Deleting remaining media files
-        
-
-
-    
-
-    
-    

@@ -35,7 +35,8 @@ source ./bin/activate
 cd AESTube
 pip3 install -r requirements.txt
 
-I removed the usage of pytube for youtube-dl and ffmpeg so this step should not be needed. Frankly, the way I used youtube-dl is nearly the same as nicomda but in one combined function. Plus I simp for youtube-dl. ¯\_(ツ)_/¯
+I removed the usage of pytube for youtube-dl and ffmpeg so this step should not be needed. 
+Frankly, the way I used youtube-dl is nearly the same as nicomda but in one combined function. Plus I simp for youtube-dl. ¯\_(ツ)_/¯
 
 ~~~ Must update pytube as shown to get it working~~~
 ~~~ pip3 install git+https://github.com/nficano/pytube.git --upgrade~~~

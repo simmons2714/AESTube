@@ -1,4 +1,4 @@
-# AESTube
+# AESTube n' Wav
 This is a PoC using youtube audio to encrypt text/files. It uses AES-256.
 How it's done:
 1. Download MP4 audio stream from a YouTube link.
@@ -8,12 +8,19 @@ How it's done:
 5. These notes are used as the passphrase for AES encryption.
 6. That's all folks 😎
 
-In addition to this, I created some audio splitting mechanism that allows you to trim it, improving the security.
+In addition to this, nicomda created some audio splitting mechanism that allows you to trim it, improving the security.
 ## Installation (Read carefully. Some tweaks are needed)
+
+## Required programs
+1. ffmpeg
+2. libsound portaudio19
+3. pyaudio
+Possibly youtube-dl as well. The requirements.txt should salsify that dependency but if you get issues with youtube-dl install the distro version.
+
 Assure that you have python3 installed on your system.
 ```sh
 #Clone this repo
-git clone https://github.com/nicomda/AESTube.git
+git clone https://github.com/simmons2714/AESTube.git
 
 #Install if not installed
 pip3 install virtualenv
@@ -26,19 +33,21 @@ source ./bin/activate
 
 #Installing required libraries in the virtual enviroment (FFMpeg, pyaudio...)
 cd AESTube
-sudo chmod +x dependencies-installer.sh
-./dependencies-installer.sh
 pip3 install -r requirements.txt
-#Must update pytube as shown to get it working
-pip3 install git+https://github.com/nficano/pytube.git --upgrade
+
+I removed the usage of pytube for youtube-dl and ffmpeg so this step should not be needed. Frankly, the way I used youtube-dl is nearly the same as nicomda but in one combined function. Plus I simp for youtube-dl. ¯\_(ツ)_/¯
+
+~~~ Must update pytube as shown to get it working~~~
+~~~ pip3 install git+https://github.com/nficano/pytube.git --upgrade~~~
+
 ```
 ## Quick Start
 ```bash
 #To encrypt text: 
-./AESTube.py -e -t 'text_to_encrypt' -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'
+./AESTube.py -e -t 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
 
 #To decrypt files: 
-./AESTube.py -e -t 'filepath' -l 'YoutubeLink' -s 'start_seconds' 'end_seconds'
+./AESTube.py -e -d 'text_to_encrypt' -s -l 'YoutubeLink' --start_time='HH:MM:SS' --end_time='HH:MM:SS'
 ```
 
 ### **Available arguments:**
@@ -51,8 +60,7 @@ pip3 install git+https://github.com/nficano/pytube.git --upgrade
 | -f <file_to_encrypt>             |File to encrypt
 | -l, --yt_link= 'Youtube link'    |Audio that will be used to get passphrase
 | -s                               |Splitted mode. Will get just a part of the audio. If used, you must set start_time and end_time args |✔
+| -w                               |Local files
 | --start_time=                    |Start of the split in seconds |✔
 | --end_time=                      |Start of the split in seconds |✔
-| -o, --output_path=               |Path where output will be created |On progress
-| -a                               |Interactive mode (Will ask for options) |✔
 

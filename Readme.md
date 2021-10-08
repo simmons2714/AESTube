@@ -65,3 +65,5 @@ Frankly, the way I used youtube-dl is nearly the same as nicomda but in one comb
 | --start_time=                    |Start of the split in seconds |✔
 | --end_time=                      |Start of the split in seconds |✔
 
+## TODO
+Use stereo instead of mono

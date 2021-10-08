@@ -182,7 +182,7 @@ def soundProcessing(file_name):
 
 def splitAudio(startTime, endTime, file_name):
     command=f"ffmpeg -i '{file_name}.wav' -ss '{startTime}' -to '{endTime}' -c copy '{file_name}_split.wav'"
-     try:
+    try:
         subprocess.check_call(['ffmpeg', '-version'])
     except subprocess.CalledProcessError:
         print('FFMpeg not installed. It is used during conversion process.')
@@ -193,8 +193,6 @@ def splitAudio(startTime, endTime, file_name):
         FNULL = open(os.devnull, 'wb')
         subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
 
-def downloadedTrigger(stream, file_handle):
-    print('Download Completed')
 #Binary file to b64 then to utf-8 string
 def readBinFile(filepath):
     try:
@@ -203,6 +201,7 @@ def readBinFile(filepath):
     except IOError:
         print('[Error] Reading file')
         sys.exit()
+
 #Base 64 data to binary file
 def writeBinToFile(data,filename):
     try:
@@ -216,21 +215,23 @@ def download_audio(url):
     ydl_opts = {
         'verbose': True,
         'format': 'best',
-        'outtmpl': 'key.mp4',
-        'noplaylist': True
-
+        'noplaylist': True,
+        'outtmpl': 'key.%(ext)s',
+        'restrictfilenames':True,
+        'forcefilename': True,
         }
     with youtube_dl.YoutubeDL(ydl_opts) as ydl:
         ydl.cache.remove()
-        vid_title = ydl.extract_info(url, None)
+        vid_info = ydl.extract_info(url, None)
+        filename = ydl.prepare_filename(vid_info)
         ydl.download([url])
 
-
-    command= f"ffmpeg -y -i 'key.mp4' -ab 96k -ac 1 -ar 44100 -vn 'key.wav'"
+    ext=filename.split('.')[1]
+    command= f"ffmpeg -y -i 'key.{ext}' -ab 96k -ac 1 -ar 44100 -vn 'key.wav'"
     if(isVerbose):
         print(command)
     #print(f'Converting to wav: {vid_title}')
-    print('Converting to wav:  %s' % vid_title['title'])
+    print('Converting to wav:  %s' % vid_info['title'])
     try:
         subprocess.check_call(['ffmpeg', '-version'])
     except subprocess.CalledProcessError:
@@ -242,8 +243,8 @@ def download_audio(url):
         FNULL = open(os.devnull, 'wb')
         subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
 
-def fixExtension(file_name,ext):
-    command= f"ffmpeg -y -i '{file_name}{ext}' -ab 96k -ac 1 -ar 44100 -vn -c copy'{file_name}.wav'"
+def fixExtension(file_name, ext):
+    command= f"ffmpeg -y -i '{file_name}.{ext}' -ab 96k -ac 1 -ar 44100 -vn -c copy '{file_name}.wav'"
     try:
         subprocess.check_call(['ffmpeg', '-version'])
     except subprocess.CalledProcessError:
@@ -265,21 +266,23 @@ if __name__ == "__main__":
 
     if(isVerbose):
         print(file_name)
-    ext = file_name[-4:]
-    filename_no_ext = file_name[0:len(file_name)-4] #Just deletes .mp4
+    ext=file_name.split('.')[1]
+    #Just deletes .mp4
+    filename_no_ext=file_name.split('.')[0]
     if(isVerbose):
         print(filename_no_ext)
 
-    print(ext)
+    if(isVerbose):
+        print(ext)
     if(isSplitted):
         splitAudio(startTime, endTime, filename_no_ext)
-        if(ext == '.wav'):
+        if(ext == 'wav'):
             soundProcessing(filename_no_ext)
         else:
             fixExtension(filename_no_ext, ext)
             soundProcessing(filename_no_ext)
     else:
-        if(ext == '.wav'):
+        if(ext == 'wav'):
             soundProcessing(filename_no_ext)
         else:
             fixExtension(filename_no_ext, ext)
@@ -302,3 +305,4 @@ if __name__ == "__main__":
         else:   #File mode
             decryptedData = aes.decrypt(readBinFile(opData), decode=False)
             writeBinToFile(decryptedData, opData[0:len(opData)-5]) #Binary write deleting aenc extension
+            

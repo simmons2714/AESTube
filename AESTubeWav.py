@@ -14,16 +14,18 @@ import subprocess
 import base64
 from requests import exceptions
 from AESCipher import AESCipher
+from shutil import copyfile
 
 
 fs= 44100               #Sample Hz
-scales = 8              #Amount of musical scales to work with (12 semitones)
+scales = 12             #Amount of musical scales to work with (12 semitones)
 duration = 0            #Audio duration in ms to control splitting
 detected_notes = []     #Array to store detected notes
 detected_freqs = []     #Array to store detected frequencies
 ytLink = file_name = localfile = opData = opMode = opType = opSource = key = ''
 isSplitted = isInvalid = isVerbose = False
 startTime = endTime = ''
+path = 'mediafiles/'
 
 def getArgsOptions():
     global opMode, opType, opData, opSource, isSplitted, isVerbose, startTime, endTime, ytLink, localfile
@@ -106,8 +108,10 @@ def closest(lst, K):
 
 #Function to match Hz with note name
 def matchingFreq(freq):
-    freq_array = [16.351, 17.324, 18.354, 19.445, 20.601, 21.827, 23.124, 24.499, 25.956, 27.500, 29.135, 30.868] # 0 scale float values
-    notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] #TODO maybe add all semitones to improve complexity
+    #freq_array = [16.351, 17.324, 18.354, 19.445, 20.601, 21.827, 23.124, 24.499, 25.956, 27.500, 29.135, 30.868] # 0 scale float values
+    #notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] #TODO maybe add all semitones to improve complexity
+    freq_array = [16.35, 17.32, 18.35, 19.45, 20.60, 21.83, 23.12, 24.50, 25.96, 27.50, 29.14, 30.87, 32.70, 34.65, 36.71, 38.89, 41.20, 43.65, 46.25, 49.00, 51.91, 55.00, 58.27, 61.74, 65.41, 69.30, 73.42, 77.78, 82.41, 87.31, 92.50, 98.00, 103.83, 110.00, 116.54, 123.47, 130.81, 138.59, 146.83, 155.56, 164.81, 174.61, 185.00, 196.00, 207.65, 220.00, 233.08, 246.94, 261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392.00, 415.30, 440.00, 466.16, 493.88, 523.25, 554.37, 587.33, 622.25, 659.26, 698.46, 739.99, 783.99, 830.61, 880.00, 932.33, 987.77, 1046.50, 1108.73, 1174.66, 1244.51, 1318.51, 1396.91, 1479.98, 1567.98, 1661.22, 1760.00, 1864.66, 1975.53, 2093.00, 2217.46, 2349.32, 2489.02, 2637.02, 2793.83, 2959.96, 3135.96, 3322.44, 3520.00, 3729.31, 3951.07, 4186.01, 4434.92, 4698.64, 4978.03, 5274.04, 5587.65, 5919.91, 6271.93, 6644.88, 7040.00, 7458.62, 7902.13]
+    notes = ['C0', 'C#0', 'D0', 'D#0', 'E0', 'F0', 'F#0', 'G0', 'G#0', 'A0', 'A#0', 'B0', 'C1', 'C#1', 'D1', 'D#1', 'E1', 'F1', 'F#1', 'G1', 'G#1', 'A1', 'A#1', 'B1', 'C2', 'C#2', 'D2', 'D#2', 'E2', 'F2', 'F#2', 'G2', 'G#2', 'A2', 'A#2', 'B2', 'C3', 'C#3', 'D3', 'D#3', 'E3', 'F3', 'F#3', 'G3', 'G#3', 'A3', 'A#3', 'B3', 'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4', 'C5', 'C#5', 'D5', 'D#5', 'E5', 'F5', 'F#5', 'G5', 'G#5', 'A5', 'A#5', 'B5', 'C6', 'C#6', 'D6', 'D#6', 'E6', 'F6', 'F#6', 'G6', 'G#6', 'A6', 'A#6', 'B6', 'C7', 'C#7', 'D7', 'D#7', 'E7', 'F7', 'F#7', 'G7', 'G#7', 'A7', 'A#7', 'B7', 'C8', 'C#8', 'D8', 'D#8', 'E8', 'F8', 'F#8', 'G8', 'G#8', 'A8', 'A#8', 'B8']
     scale_multiplier = 0    #Could be used to restrict notes by multiples
     current_note=0
     for i in range(len(freq_array)*scales):
@@ -156,7 +160,8 @@ def noteDetect(audio_file):
         f = np.fft.fft(sound)
         i_max = np.argmax(abs(f))
         #DEBUG print("Fourier (abs) value: " + str(i_max))
-        freq = round((i_max * fs)/len(sound),3) #Freqs rounded to 3 decimals
+        #freq = round((i_max * fs)/len(sound),3) #Freqs rounded to 3 decimals
+        freq = round((i_max * fs)/len(sound),2) #Freqs rounded to 2 decimals for use with larger set
         detected_freqs.append(freq)
     audio_file.close() #Close audio file
     clean_freqs = filterFrequencyArray(detected_freqs)
@@ -171,7 +176,7 @@ def noteDetect(audio_file):
 
 def soundProcessing(file_name):
     try:
-        sound_file = wave.open( f'{file_name}.wav', 'r')
+        sound_file = wave.open( f'mediafiles/{file_name}.wav', 'r')
         print('Conversion completed. Now starting to analize.')
         print('----------------------------------------------')
         filtered_notes= noteDetect(sound_file) #To audio processing with FFT
@@ -216,7 +221,7 @@ def download_audio(url):
         'verbose': True,
         'format': 'best',
         'noplaylist': True,
-        'outtmpl': 'key.%(ext)s',
+        'outtmpl': 'mediafiles/key.%(ext)s',
         'restrictfilenames':True,
         'forcefilename': True,
         }
@@ -227,16 +232,29 @@ def download_audio(url):
         ydl.download([url])
 
     ext=filename.split('.')[1]
-    command= f"ffmpeg -y -i 'key.{ext}' -ab 96k -ac 1 -ar 44100 -vn 'key.wav'"
-    if(isVerbose):
-        print(command)
-    #print(f'Converting to wav: {vid_title}')
+    name = filename.split('.')[0]
+    name = name.split('/')[1]
+    #command= f"ffmpeg -y -i 'key.{ext}' -ab 96k -ac 1 -ar 44100 -vn 'key.wav'"
+    if(opMode=='E'):
+        command = "./convert.sh"
+    else:
+        command = "./deconvert.sh"
+
+    f = open("varfile.txt", "w")
+    f.write(ext)
+    f.close()
+
+    f = open("name.txt", "w")
+    f.write(name)
+    f.close()
+
     print('Converting to wav:  %s' % vid_info['title'])
     try:
         subprocess.check_call(['ffmpeg', '-version'])
     except subprocess.CalledProcessError:
         print('FFMpeg not installed. It is used during conversion process.')
         sys.exit()
+
     if(isVerbose):
         subprocess.call(command, shell=True)
     else:
@@ -256,6 +274,41 @@ def fixExtension(file_name, ext):
         FNULL = open(os.devnull, 'wb')
         subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
 
+def localMixUp(filename):
+    ext=filename.split('.')[1]
+    name = filename.split('.')[0]
+    dst = f'mediafiles/{filename}'
+    src = filename
+    path = 'mediafiles/'
+
+    if(opMode=='E'):
+        command = "./convert.sh"
+    else:
+        command = "./deconvert.sh"
+
+    f = open("varfile.txt", "w")
+    f.write(ext)
+    f.close()
+
+    f = open("name.txt", "w")
+    f.write(name)
+    f.close()
+
+    os.mkdir(path)
+    copyfile(src, dst)
+
+    try:
+        subprocess.check_call(['ffmpeg', '-version'])
+    except subprocess.CalledProcessError:
+        print('FFMpeg not installed. It is used during conversion process.')
+        sys.exit()
+
+    if(isVerbose):
+        subprocess.call(command, shell=True)
+    else:
+        FNULL = open(os.devnull, 'wb')
+        subprocess.call(command, stdout=FNULL, stderr=subprocess.STDOUT, shell=True)
+
 if __name__ == "__main__":
     getArgsOptions()
     if(opSource == 'L'):
@@ -263,11 +316,12 @@ if __name__ == "__main__":
         file_name = 'key.wav'
     if(opSource == 'W'):
         file_name = localfile
+        localMixUp(file_name)
 
     if(isVerbose):
         print(file_name)
     ext=file_name.split('.')[1]
-    #Just deletes .mp4
+    #filename_no_ext = file_name[0:len(file_name)-4] #Just deletes .mp4
     filename_no_ext=file_name.split('.')[0]
     if(isVerbose):
         print(filename_no_ext)
@@ -305,4 +359,12 @@ if __name__ == "__main__":
         else:   #File mode
             decryptedData = aes.decrypt(readBinFile(opData), decode=False)
             writeBinToFile(decryptedData, opData[0:len(opData)-5]) #Binary write deleting aenc extension
-            
+
+    files = glob.glob(f'mediafiles/*')
+    for f in files:
+        os.remove(f)    #Deleting remaining media files
+    os.rmdir(path)
+
+
+    
+    

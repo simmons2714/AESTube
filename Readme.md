@@ -8,6 +8,9 @@ How it's done:
 5. These notes are used as the passphrase for AES encryption.
 6. That's all folks 😎
 
+## Important!
+The other party needs 'adjlist.txt' in order to decrypt the file or text. 
+
 In addition to this, nicomda created some audio splitting mechanism that allows you to trim it, improving the security.
 ## Installation (Read carefully. Some tweaks are needed)
 
@@ -64,6 +67,13 @@ Frankly, the way I used youtube-dl is nearly the same as nicomda but in one comb
 | -w                               |Local files
 | --start_time=                    |Start of the split in seconds |✔
 | --end_time=                      |Start of the split in seconds |✔
+
+## Update
+So now with the power of convert.sh and deconvert.sh the audio file is mixed up. This is done by reversing the right audio track, splitting the file by 7 second intervals, and shuffling the order of the parts and bringing them back together. 
+
+Also I added the all 88 keys of the piano in the A4(440HZ) scale. So in theory both of these should create a stronger encryption. 
+
+The way I shuffled the files is by using the shuf command. So in a way it's like a really jank(but not really) public key encryption because you need to give the other person adjlist.txt created from convert.sh in order for them to decrypt the file or text.
 
 ## TODO
 Use stereo instead of mono

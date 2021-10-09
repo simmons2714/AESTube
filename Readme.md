@@ -8,6 +8,8 @@ How it's done:
 5. These notes are used as the passphrase for AES encryption.
 6. That's all folks 😎
 
+In addition to this, nicomda created some audio splitting mechanism that allows you to trim it, improving the security.
+
 ## Important!
 The other party needs 'adjlist.txt' in order to decrypt the file or text. 
 
